@@ -1,91 +1,107 @@
 module Parser (parse, Expr (..)) where
 
 import Control.Applicative
-import Data.Char (isAlpha)
+import Data.Char (isAlpha, isDigit, isSpace)
 import Data.List (intercalate)
 
 type Error = String
 
-data Expr = Atom String | List [Expr] | Int Int | Bool Bool deriving Eq
+data Expr = Atom String | List [Expr] | Int Integer | Bool Bool deriving (Eq)
 
 instance Show Expr where
     show (Atom s) = s
-    show (List es) = "(" ++ intercalate " " (show <$> es) ++ ")"
+    show (List es) = "(" ++ intercalate " " (map show es) ++ ")"
     show (Int i) = show i
-    show (Bool b) = show b
+    show (Bool b) = if b then "#t" else "#f"
 
-newtype Parser a = P {unP :: String -> (String, Either Error a)}
+newtype Parser a = Parser {runParser :: String -> Either Error (String, a)}
 
 instance Functor Parser where
-    fmap f (P st) = P $ \stream ->
-        let (res, mbP) = st stream
-         in (res, f <$> mbP)
+    fmap f (Parser px) =
+        Parser $ \input -> do
+            (input', x) <- px input
+            return (input', f x)
 
 instance Applicative Parser where
-    pure a = P (\stream -> (stream, Right a))
-    P f <*> P x = P $ \stream ->
-        let (stream', mbF) = f stream
-         in let (stream'', mbX) = x stream'
-             in (stream'', mbF <*> mbX)
+    pure a = Parser (\input -> Right (input, a))
+
+    Parser pf <*> Parser px =
+        Parser $ \input -> do
+            (input', f) <- pf input
+            (input'', x) <- px input'
+            return (input'', f x)
 
 instance Alternative Parser where
-    empty = P $ \stream -> (stream, Left "empty")
+    empty = Parser $ const (Left "empty")
 
-    (<|>) (P f) (P f') = P $ \stream -> case f stream of
-        (stream', Right a) -> (stream', Right a)
-        (_, Left _) -> f' stream
+    Parser p <|> Parser p' =
+        Parser $ \input ->
+            case p input of
+                Left _ -> p' input
+                result -> result
 
-    many (P f) = P go
-      where
-        go stream = case f stream of
-            (_, Left _) -> (stream, Right [])
-            (stream', Right a) ->
-                let (streamFin, mbAs) = go stream'
-                 in (streamFin, (a :) <$> mbAs)
+instance Monad Parser where
+    Parser p >>= f =
+        Parser $ \input -> do
+            (input', x) <- p input
+            runParser (f x) input'
 
-    some (P f) = (:) <$> P f <*> many (P f)
+sepBy :: Parser a -> Parser b -> Parser [b]
+sepBy sep p = (:) <$> p <*> many (sep *> p) <|> pure []
 
--- Consumes next character if predicate met
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy f = P $ \stream -> case stream of
-    [] -> ([], Left "end of stream")
-    (c : cs)
-        | f c -> (cs, Right c)
-        | otherwise -> (cs, Left "did not satisfy")
+satisfy cond =
+    Parser $ \input -> case input of
+        c : cs | cond c -> Right (cs, c)
+        [] -> Left "End of Stream"
+        _ -> Left $ "Failed to Satisfy"
 
-char :: Char -> Parser Char
-char c = satisfy (== c)
-
-string :: String -> Parser String
-string [] = pure []
-string (c : cs) = (:) <$> char c <*> string cs
+strip :: Parser ()
+strip = () <$ many (satisfy isSpace)
 
 spaces :: Parser ()
-spaces = P $ \stream -> (dropWhile (== ' ') stream, Right ())
+spaces = () <$ some (satisfy isSpace)
 
-bool :: Parser Expr
-bool = (Bool True <$ string "#t") <|> (Bool False <$ string "#f")
+charP :: Char -> Parser Char
+charP c = satisfy (== c)
 
-numeric :: Parser Expr
-numeric = Int . read <$> (some $ satisfy (`elem` "0123456789"))
+stringP :: String -> Parser String
+stringP "" = pure ""
+stringP (c : cs) = (:) <$> charP c <*> stringP cs
 
-alpha :: Parser Expr
-alpha = Atom <$> (some $ satisfy isAlpha)
+boolP :: Parser Bool
+boolP = (True <$ stringP "#t") <|> (False <$ stringP "#f")
 
-special :: Parser Expr
-special = Atom <$> (some $ satisfy (`elem` "+/-*"))
+numberP :: Parser Integer
+numberP = do
+    neg <- optional (charP '-')
+    digits <- some $ satisfy isDigit
+    let number = read digits
+    return $ case neg of
+        Just _ -> -number
+        Nothing -> number
 
-literal :: Parser Expr
-literal = numeric <|> alpha <|> bool <|> special
+alphaP :: Parser String
+alphaP = some $ satisfy isAlpha
 
-list :: Parser Expr
-list = char '(' *> spaces *> (List <$> many (expr <* spaces)) <* char ')'
+specialP :: Parser Char
+specialP = satisfy (`elem` "+/-*")
 
-expr :: Parser Expr
-expr = list <|> literal
+literalP :: Parser Expr
+literalP =
+    (Int <$> numberP)
+        <|> (Bool <$> boolP)
+        <|> (Atom <$> alphaP)
+        <|> (Atom . pure <$> specialP)
+
+listP :: Parser Expr
+listP = List <$> (charP '(' *> strip *> sepBy spaces exprP <* strip <* charP ')')
+
+exprP :: Parser Expr
+exprP = listP <|> literalP
 
 parse :: String -> Either Error Expr
-parse s = case (unP expr) s of
-    (_, Left err) -> Left err
-    ("", Right expr') -> Right expr'
-    (_, Right _) -> Left "stream not fully consumed"
+parse input = case (runParser exprP) input of
+    Right ("", expr) -> Right expr
+    Right _ -> Left "Input not fully consumed"
+    Left err -> Left err
