@@ -11,3 +11,6 @@ all:
 	gcc -arch x86_64 -ld_classic -o $(FNAME) $(FNAME).o
 	rm $(FNAME).o
 	./$(FNAME)
+
+clean:
+	rm $(FNAME)

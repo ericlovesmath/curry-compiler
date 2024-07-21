@@ -1,16 +1,21 @@
-module ASM (compile) where
+module ASM (asm) where
 
 import AST as A
+
+-- TODO: All of this header and footer is basically temporary
+
+asm :: A.Ast -> String
+asm ast = header ++ emit ast ++ footer
 
 header :: String
 header =
     concat
         [ "global _main\n"
-        , "extern _printf\n"
+        , "extern _printf\n\n"
         , "section .data\n"
+        , "default rel\n\n"
         , "format_int:\n"
-        , "    default rel\n"
-        , "    db \"Int: %d\", 0\n"
+        , "    db \"%d\", 10, 0\n\n"
         , "section .text\n\n"
         , "_main:\n"
         ]
@@ -18,41 +23,62 @@ header =
 footer :: String
 footer =
     concat
-        [ "    ; Print Int on Stack\n"
+        [ "    ; Print integer on stack\n"
         , "    pop  rsi\n"
         , "    lea  rdi, [format_int]\n"
-        , "    call _printf\n"
-        , "    ret"
+        , "    call _printf\n\n"
+        , "    ; exit 0\n"
+        , "    mov rax, 0x2000001\n"
+        , "    xor rdi, rdi\n"
+        , "    syscall\n"
         ]
 
-compile :: A.Ast -> String
-compile ast = header ++ toAsm ast ++ footer
-
-toAsm :: A.Ast -> String
-toAsm ast = case ast of
+emit :: A.Ast -> String
+emit ast = case ast of
     A.Add left right ->
         concat
             [ "    ; Addition\n"
-            , toAsm left
-            , toAsm right
+            , emit left
+            , emit right
             , "    pop rdi\n"
             , "    pop rax\n"
             , "    add rax, rdi\n"
-            , "    push rax\n"
+            , "    push rax\n\n"
             ]
     A.Sub left right ->
         concat
             [ "    ; Subtraction\n"
-            , toAsm left
-            , toAsm right
+            , emit left
+            , emit right
             , "    pop rdi\n"
             , "    pop rax\n"
             , "    sub rax, rdi\n"
-            , "    push rax\n"
+            , "    push rax\n\n"
+            ]
+    A.Mul left right ->
+        concat
+            [ "    ; Multiplication\n"
+            , emit left
+            , emit right
+            , "    pop rdi\n"
+            , "    pop rax\n"
+            , "    imul rax, rdi\n"
+            , "    push rax\n\n"
+            ]
+    A.Div left right ->
+        concat
+            [ "    ; Division\n"
+            , emit left
+            , emit right
+            , "    pop rdi\n"
+            , "    pop rax\n"
+            , "    cqo\n"
+            , "    idiv rdi\n"
+            , "    push rax\n\n"
             ]
     A.Int n ->
         concat
-            [ "    ; Push integer\n"
+            [ "    ; Push integer " ++ show n ++ "\n"
             , "    mov rax, " ++ show n ++ "\n"
-            , "    push rax\n"
+            , "    push rax\n\n"
             ]
