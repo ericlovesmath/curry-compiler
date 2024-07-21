@@ -71,7 +71,7 @@ executable curry-compiler
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.19.0.0, hspec
+    build-depends:    base ^>=4.19.0.0, hspec, QuickCheck
 
     -- Directories containing source files.
     hs-source-dirs:   src, test
@@ -82,7 +82,7 @@ test-suite curry-compiler-test
   main-is: Spec.hs
   hs-source-dirs: test, src
   ghc-options: -Wall
-  build-depends: base, hspec
+  build-depends: base, hspec, QuickCheck
   build-tool-depends: hspec-discover:hspec-discover
   other-modules:
       ParserSpec,
