@@ -1,9 +1,10 @@
 module Main where
 
-import Parser (parse)
+import ASM (compile)
 import AST (toAst)
+import Parser (parse)
 
 main :: IO ()
-main = print . fmap toAst $ parse "(- 23 (+ 123 23 ))"
-
--- TODO: Write tests
+main = case parse "(- 79 (+ 123 23 ))" >>= toAst of
+    Right ast -> writeFile "output.asm" $ compile ast
+    Left err -> putStr err
