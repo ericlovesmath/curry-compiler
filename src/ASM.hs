@@ -11,7 +11,8 @@ header :: String
 header =
     concat
         [ "global _main\n"
-        , "extern _printf\n\n"
+        , "extern _printf\n"
+        , "extern _exit\n\n"
         , "section .data\n"
         , "default rel\n\n"
         , "format_int:\n"
@@ -24,13 +25,13 @@ footer :: String
 footer =
     concat
         [ "    ; Print integer on stack\n"
-        , "    pop  rsi\n"
-        , "    lea  rdi, [format_int]\n"
+        , "    pop rsi\n"
+        , "    lea rdi, [format_int]\n"
+        , "    xor rax, rax\n"
         , "    call _printf\n\n"
         , "    ; exit 0\n"
-        , "    mov rax, 0x2000001\n"
         , "    xor rdi, rdi\n"
-        , "    syscall\n"
+        , "    call _exit"
         ]
 
 emit :: A.Ast -> String
@@ -76,9 +77,4 @@ emit ast = case ast of
             , "    idiv rdi\n"
             , "    push rax\n\n"
             ]
-    A.Int n ->
-        concat
-            [ "    ; Push integer " ++ show n ++ "\n"
-            , "    mov rax, " ++ show n ++ "\n"
-            , "    push rax\n\n"
-            ]
+    A.Int n -> "    push " ++ show n ++ "\n"
