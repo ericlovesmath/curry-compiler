@@ -30,7 +30,7 @@ verifyCompiler filename expected = do
     writeFile asmFile (compile code)
 
     -- Assemble Binary
-    callCommand $ "make FNAME=" ++ base
+    callCommand $ "make -s FNAME=" ++ base
 
     -- Verify Binary
     output <- readProcess binaryFile [] ""

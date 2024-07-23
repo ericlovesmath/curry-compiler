@@ -101,7 +101,7 @@ exprP :: Parser Expr
 exprP = listP <|> literalP
 
 parse :: String -> Either Error Expr
-parse input = case (runParser exprP) input of
+parse input = case (runParser $ strip *> exprP <* strip) input of
     Right ("", expr) -> Right expr
     Right _ -> Left "Input not fully consumed"
     Left err -> Left err

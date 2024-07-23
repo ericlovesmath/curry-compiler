@@ -45,6 +45,9 @@ spec = do
         it "spaces" $ do
             parse "(  word   12   5    6  )"
                 `shouldBe` Right (List [Atom "word", Int 12, Int 5, Int 6])
+        it "leading and training spaces" $ do
+            parse "  (1 2)" `shouldBe` Right (List [Int 1, Int 2])
+            parse "(1 2)  " `shouldBe` Right (List [Int 1, Int 2])
         it "other whitespace" $ do
             parse "( \r word \n       12   5    6  )"
                 `shouldBe` Right (List [Atom "word", Int 12, Int 5, Int 6])
@@ -59,9 +62,6 @@ spec = do
             parse "(1 2 " `shouldSatisfy` fails
             parse "1 2)" `shouldSatisfy` fails
             parse "(1 (33 2)" `shouldSatisfy` fails
-        it "leading and training spaces" $ do
-            parse "  (1 2)" `shouldSatisfy` fails
-            parse "(1 2)  " `shouldSatisfy` fails
         it "empty input" $ do
             parse "" `shouldSatisfy` fails
         it "no repeat bool" $ do

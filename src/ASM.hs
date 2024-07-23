@@ -24,57 +24,37 @@ header =
 footer :: String
 footer =
     concat
-        [ "    ; Print integer on stack\n"
-        , "    pop rsi\n"
-        , "    lea rdi, [format_int]\n"
-        , "    xor rax, rax\n"
-        , "    call _printf\n\n"
-        , "    ; exit 0\n"
+        [ "    ; exit 0\n"
         , "    xor rdi, rdi\n"
         , "    call _exit"
         ]
 
+emitBinOp :: A.Ast -> A.Ast -> String -> String -> String
+emitBinOp left right comment op =
+    concat
+        [ "    ; " ++ comment ++ "\n"
+        , emit right
+        , "    push rax\n"
+        , emit left
+        , "    pop rdi\n"
+        , "    " ++ op ++ "\n"
+        ]
+
 emit :: A.Ast -> String
 emit ast = case ast of
-    A.Add left right ->
+    A.Add e e' -> emitBinOp e e' "Addition" "add rax, rdi"
+    A.Sub e e' -> emitBinOp e e' "Subtraction" "sub rax, rdi"
+    A.Mul e e' -> emitBinOp e e' "Multiplication" "imul rax, rdi"
+    A.Div e e' -> emitBinOp e e' "Division" "cqo\n    idiv rdi"
+    A.Int n -> "    mov rax, " ++ show n ++ "\n"
+    A.PrintInt e ->
         concat
-            [ "    ; Addition\n"
-            , emit left
-            , emit right
-            , "    pop rdi\n"
-            , "    pop rax\n"
-            , "    add rax, rdi\n"
-            , "    push rax\n\n"
+            [ emit e
+            , "    ; Print integer on rax\n"
+            , "    lea rdi, [format_int]\n"
+            , "    mov rsi, rax\n"
+            , "    xor rax, rax\n"
+            , "    call _printf\n"
             ]
-    A.Sub left right ->
-        concat
-            [ "    ; Subtraction\n"
-            , emit left
-            , emit right
-            , "    pop rdi\n"
-            , "    pop rax\n"
-            , "    sub rax, rdi\n"
-            , "    push rax\n\n"
-            ]
-    A.Mul left right ->
-        concat
-            [ "    ; Multiplication\n"
-            , emit left
-            , emit right
-            , "    pop rdi\n"
-            , "    pop rax\n"
-            , "    imul rax, rdi\n"
-            , "    push rax\n\n"
-            ]
-    A.Div left right ->
-        concat
-            [ "    ; Division\n"
-            , emit left
-            , emit right
-            , "    pop rdi\n"
-            , "    pop rax\n"
-            , "    cqo\n"
-            , "    idiv rdi\n"
-            , "    push rax\n\n"
-            ]
-    A.Int n -> "    push " ++ show n ++ "\n"
+
+-- A.Begin exprs -> concat $ emit <$> exprs
