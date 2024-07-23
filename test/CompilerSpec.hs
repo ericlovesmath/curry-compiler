@@ -4,17 +4,18 @@ import System.Directory (removeFile)
 import System.Process (callCommand, readProcess)
 import Test.Hspec
 
-import ASM (asm)
-import AST (tree)
+import ASM (makeASM)
+import AST (makeAST)
+import IR (makeIR)
 import Parser (parse)
 
 compile :: String -> String
 compile program =
     case parse program of
         Left err -> error $ "Parser Error: " ++ err
-        Right expr -> case tree expr of
+        Right expr -> case makeAST expr of
             Left err -> error $ "AST Error: " ++ err
-            Right ast -> asm ast
+            Right ast -> makeASM $ makeIR ast
 
 verifyCompiler :: FilePath -> String -> IO ()
 verifyCompiler filename expected = do
@@ -44,4 +45,6 @@ spec :: Spec
 spec = do
     describe "compiler checks" $ do
         it "compiles source code to assembly and runs correctly" $ do
-            verifyCompiler "basic" "-59\n"
+            verifyCompiler "basic" $
+                unlines
+                    (map show ([1, 9, 15, -36, -4, -59] :: [Integer]))

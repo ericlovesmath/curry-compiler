@@ -82,12 +82,13 @@ test-suite curry-compiler-test
   main-is: Spec.hs
   hs-source-dirs: test, src
   ghc-options: -Wall
-  build-depends: base, hspec, process, directory, QuickCheck
+  build-depends: base, hspec, process, directory, mtl, QuickCheck
   build-tool-depends: hspec-discover:hspec-discover
   other-modules:
       CompilerSpec,
       ParserSpec,
       Parser,
       AST,
+      IR,
       ASM,
   default-language: Haskell2010
