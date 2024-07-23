@@ -1,16 +1,39 @@
 module Main where
 
+import System.IO (hFlush, stdout)
+import System.Process (callCommand, readProcess)
+
 import ASM (asm)
 import AST (tree)
 import Parser (parse)
 
-compile :: String -> FilePath -> IO ()
-compile program filepath =
-    case parse program of
-        Left err -> putStrLn $ "Parser Error: " ++ err
-        Right expr -> case tree expr of
-            Left err -> putStrLn $ "Compiler Error: " ++ err
-            Right ast -> writeFile filepath $ asm ast
+type Error = String
+
+compile :: String -> Either Error String
+compile program = do
+    expr <- parse program
+    ast <- tree expr
+    return $ asm ast
+
+repl :: IO ()
+repl = do
+    putStr "> "
+    hFlush stdout
+    input <- getLine
+    case input of
+        ":q" -> return ()
+        _ -> do
+            case compile input of
+                Left err -> do
+                    putStrLn $ "Error: " ++ err
+                Right assembly -> do
+                    writeFile (path ++ ".asm") assembly
+                    callCommand $ "make -s FNAME=" ++ path
+                    output <- readProcess path [] ""
+                    putStr output
+            repl
+  where
+    path = "/tmp/curry-repl"
 
 main :: IO ()
-main = compile "(* (+ 2700 (/ -127396 51)) 2)" "output.asm"
+main = repl
