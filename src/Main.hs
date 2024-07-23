@@ -4,6 +4,7 @@ import System.IO (hFlush, stdout)
 import System.Process (callCommand, readProcess)
 
 import ASM (asm)
+import IR (makeIR)
 import AST (tree)
 import Parser (parse)
 
@@ -13,7 +14,8 @@ compile :: String -> Either Error String
 compile program = do
     expr <- parse program
     ast <- tree expr
-    return $ asm ast
+    let ir = makeIR ast
+    return $ asm ir
 
 repl :: IO ()
 repl = do

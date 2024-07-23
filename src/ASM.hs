@@ -1,11 +1,11 @@
 module ASM (asm) where
 
-import AST as A
+import IR as I
 
 -- TODO: All of this header and footer is basically temporary
 
-asm :: A.Ast -> String
-asm ast = header ++ emit ast ++ footer
+asm :: IR -> String
+asm ir = header ++ emit ir ++ footer
 
 header :: String
 header =
@@ -29,7 +29,7 @@ footer =
         , "    call _exit"
         ]
 
-emitBinOp :: A.Ast -> A.Ast -> String -> String -> String
+emitBinOp :: IR -> IR -> String -> String -> String
 emitBinOp left right comment op =
     concat
         [ "    ; " ++ comment ++ "\n"
@@ -40,14 +40,14 @@ emitBinOp left right comment op =
         , "    " ++ op ++ "\n"
         ]
 
-emit :: A.Ast -> String
-emit ast = case ast of
-    A.Add e e' -> emitBinOp e e' "Addition" "add rax, rdi"
-    A.Sub e e' -> emitBinOp e e' "Subtraction" "sub rax, rdi"
-    A.Mul e e' -> emitBinOp e e' "Multiplication" "imul rax, rdi"
-    A.Div e e' -> emitBinOp e e' "Division" "cqo\n    idiv rdi"
-    A.Int n -> "    mov rax, " ++ show n ++ "\n"
-    A.PrintInt e ->
+emit :: IR -> String
+emit ir = case ir of
+    Add e e' -> emitBinOp e e' "Addition" "add rax, rdi"
+    Sub e e' -> emitBinOp e e' "Subtraction" "sub rax, rdi"
+    Mul e e' -> emitBinOp e e' "Multiplication" "imul rax, rdi"
+    Div e e' -> emitBinOp e e' "Division" "cqo\n    idiv rdi"
+    Int n -> "    mov rax, " ++ show n ++ "\n"
+    PrintInt e ->
         concat
             [ emit e
             , "    ; Print integer on rax\n"
@@ -56,5 +56,17 @@ emit ast = case ast of
             , "    xor rax, rax\n"
             , "    call _printf\n"
             ]
-
--- A.Begin exprs -> concat $ emit <$> exprs
+    Begin es -> concat $ map emit es
+    If l cond t f ->
+        -- TODO: Implement Booleans instead of == 0
+        concat
+            [ "    ; If Statement\n"
+            , emit cond
+            , "    cmp rax, 0\n"
+            , "    jne .else." ++ show l ++ "\n\n"
+            , emit t
+            , "    jmp .after." ++ show l ++ "\n"
+            , ".else." ++ show l ++ ":\n"
+            , emit f
+            , ".after." ++ show l ++ ":\n"
+            ]
