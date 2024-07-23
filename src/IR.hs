@@ -1,10 +1,11 @@
 module IR (makeIR, IR (..)) where
 
+import qualified AST as A
+
 import Control.Monad.State
 
-import AST as A
-
 type Label = Integer
+type FreshM = State Label
 
 data IR
     = Add IR IR
@@ -16,7 +17,8 @@ data IR
     | Begin [IR]
     | If Label IR IR IR
 
-type FreshM = State Label
+makeIR :: A.Ast -> IR
+makeIR ast = evalState (ir ast) 0
 
 fresh :: FreshM Integer
 fresh = do
@@ -24,22 +26,18 @@ fresh = do
     put (n + 1)
     return n
 
-binaryOp :: (IR -> IR -> IR) -> Ast -> Ast -> FreshM IR
+ir :: A.Ast -> FreshM IR
+ir (A.Add e e') = binaryOp Add e e'
+ir (A.Sub e e') = binaryOp Sub e e'
+ir (A.Mul e e') = binaryOp Mul e e'
+ir (A.Div e e') = binaryOp Div e e'
+ir (A.Int n) = return $ Int n
+ir (A.PrintInt e) = PrintInt <$> ir e
+ir (A.Begin es) = Begin <$> mapM ir es
+ir (A.If cond t f) = If <$> fresh <*> ir cond <*> ir t <*> ir f
+
+binaryOp :: (IR -> IR -> IR) -> A.Ast -> A.Ast -> FreshM IR
 binaryOp constructor expr expr' = do
     e <- ir expr
     e' <- ir expr'
     return $ constructor e e'
-
-ir :: Ast -> FreshM IR
-ir ast = case ast of
-    A.Add e e' -> binaryOp IR.Add e e'
-    A.Sub e e' -> binaryOp IR.Sub e e'
-    A.Mul e e' -> binaryOp IR.Mul e e'
-    A.Div e e' -> binaryOp IR.Div e e'
-    A.Int n -> return $ IR.Int n
-    A.PrintInt e -> IR.PrintInt <$> ir e
-    A.Begin es -> IR.Begin <$> mapM ir es
-    A.If cond t f -> IR.If <$> fresh <*> ir cond <*> ir t <*> ir f
-
-makeIR :: Ast -> IR
-makeIR ast = evalState (ir ast) 0

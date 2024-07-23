@@ -1,4 +1,4 @@
-module AST (tree, Ast (..)) where
+module AST (makeAST, Ast (..)) where
 
 import qualified Parser as P
 
@@ -14,6 +14,9 @@ data Ast
     | Begin [Ast]
     | If Ast Ast Ast
     deriving (Show)
+
+makeAST :: P.Expr -> Either Error Ast
+makeAST = tree
 
 tree :: P.Expr -> Either Error Ast
 tree (P.List [(P.Atom "+"), e, e']) = binaryOp Add e e'

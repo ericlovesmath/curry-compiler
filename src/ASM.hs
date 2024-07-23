@@ -1,14 +1,12 @@
-module ASM (asm) where
+module ASM (makeASM) where
 
 import IR as I
 
--- TODO: All of this header and footer is basically temporary
+makeASM :: IR -> String
+makeASM ir = prologue ++ emit ir ++ epilogue
 
-asm :: IR -> String
-asm ir = header ++ emit ir ++ footer
-
-header :: String
-header =
+prologue :: String
+prologue =
     concat
         [ "global _main\n"
         , "extern _printf\n"
@@ -21,8 +19,8 @@ header =
         , "_main:\n"
         ]
 
-footer :: String
-footer =
+epilogue :: String
+epilogue =
     concat
         [ "    ; exit 0\n"
         , "    xor rdi, rdi\n"

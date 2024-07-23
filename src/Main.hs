@@ -4,8 +4,8 @@ import System.IO (hFlush, stdout)
 import System.Process (callCommand, readProcess)
 
 import ASM (asm)
+import AST (makeAST)
 import IR (makeIR)
-import AST (tree)
 import Parser (parse)
 
 type Error = String
@@ -13,7 +13,7 @@ type Error = String
 compile :: String -> Either Error String
 compile program = do
     expr <- parse program
-    ast <- tree expr
+    ast <- makeAST expr
     let ir = makeIR ast
     return $ asm ir
 
