@@ -46,5 +46,4 @@ spec = do
     describe "compiler checks" $ do
         it "compiles source code to assembly and runs correctly" $ do
             verifyCompiler "basic" $
-                unlines
-                    (map show ([1, 9, 15, -36, -4, -59] :: [Integer]))
+                unlines ["1", "9", "15", "-36", "-4", "-59"]

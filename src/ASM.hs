@@ -27,23 +27,23 @@ epilogue =
         , "    call _exit"
         ]
 
-emitBinOp :: IR -> IR -> String -> String -> String
-emitBinOp left right comment op =
-    concat
-        [ "    ; " ++ comment ++ "\n"
-        , emit right
-        , "    push rax\n"
-        , emit left
-        , "    pop rdi\n"
-        , "    " ++ op ++ "\n"
-        ]
-
 emit :: IR -> String
 emit ir = case ir of
-    Add e e' -> emitBinOp e e' "Addition" "add rax, rdi"
-    Sub e e' -> emitBinOp e e' "Subtraction" "sub rax, rdi"
-    Mul e e' -> emitBinOp e e' "Multiplication" "imul rax, rdi"
-    Div e e' -> emitBinOp e e' "Division" "cqo\n    idiv rdi"
+    BinaryOp op left right ->
+        concat
+            [ "    ; " ++ comment ++ "\n"
+            , emit right
+            , "    push rax\n"
+            , emit left
+            , "    pop rdi\n"
+            , "    " ++ asm ++ "\n"
+            ]
+      where
+        (comment, asm) = case op of
+            Add -> ("Addition", "add rax, rdi")
+            Sub -> ("Subtraction", "sub rax, rdi")
+            Mul -> ("Multiplication", "imul rax, rdi")
+            Div -> ("Division", "cqo\n    idiv rdi")
     Int n -> "    mov rax, " ++ show n ++ "\n"
     PrintInt e ->
         concat
@@ -55,16 +55,18 @@ emit ir = case ir of
             , "    call _printf\n"
             ]
     Begin es -> concat $ map emit es
-    If l cond t f ->
+    If label cond t f ->
         -- TODO: Implement Booleans instead of == 0
         concat
             [ "    ; If Statement\n"
             , emit cond
             , "    cmp rax, 0\n"
-            , "    jne .else." ++ show l ++ "\n\n"
+            , "    jne .else." ++ l ++ "\n\n"
             , emit t
-            , "    jmp .after." ++ show l ++ "\n"
-            , ".else." ++ show l ++ ":\n"
+            , "    jmp .after." ++ l ++ "\n"
+            , ".else." ++ l ++ ":\n"
             , emit f
-            , ".after." ++ show l ++ ":\n"
+            , ".after." ++ l ++ ":\n"
             ]
+        where
+            l = show label

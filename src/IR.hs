@@ -1,4 +1,4 @@
-module IR (makeIR, IR (..)) where
+module IR (makeIR, IR (..), BinOp (..)) where
 
 import qualified AST as A
 
@@ -8,14 +8,13 @@ type Label = Integer
 type FreshM = State Label
 
 data IR
-    = Add IR IR
-    | Sub IR IR
-    | Mul IR IR
-    | Div IR IR
+    = BinaryOp BinOp IR IR
     | Int Integer
     | PrintInt IR
     | Begin [IR]
     | If Label IR IR IR
+
+data BinOp = Add | Sub | Mul | Div
 
 makeIR :: A.Ast -> IR
 makeIR ast = evalState (ir ast) 0
@@ -27,17 +26,19 @@ fresh = do
     return n
 
 ir :: A.Ast -> FreshM IR
-ir (A.Add e e') = binaryOp Add e e'
-ir (A.Sub e e') = binaryOp Sub e e'
-ir (A.Mul e e') = binaryOp Mul e e'
-ir (A.Div e e') = binaryOp Div e e'
+ir (A.BinaryOp op e e') = binaryOp op e e'
 ir (A.Int n) = return $ Int n
 ir (A.PrintInt e) = PrintInt <$> ir e
 ir (A.Begin es) = Begin <$> mapM ir es
 ir (A.If cond t f) = If <$> fresh <*> ir cond <*> ir t <*> ir f
 
-binaryOp :: (IR -> IR -> IR) -> A.Ast -> A.Ast -> FreshM IR
-binaryOp constructor expr expr' = do
+binaryOp :: A.BinOp -> A.Ast -> A.Ast -> FreshM IR
+binaryOp op expr expr' = do
     e <- ir expr
     e' <- ir expr'
-    return $ constructor e e'
+    return $ BinaryOp (to op) e e'
+  where
+    to A.Add = Add
+    to A.Sub = Sub
+    to A.Mul = Mul
+    to A.Div = Div

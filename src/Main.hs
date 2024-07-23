@@ -3,7 +3,7 @@ module Main where
 import System.IO (hFlush, stdout)
 import System.Process (callCommand, readProcess)
 
-import ASM (asm)
+import ASM (makeASM)
 import AST (makeAST)
 import IR (makeIR)
 import Parser (parse)
@@ -15,7 +15,7 @@ compile program = do
     expr <- parse program
     ast <- makeAST expr
     let ir = makeIR ast
-    return $ asm ir
+    return $ makeASM ir
 
 repl :: IO ()
 repl = do
