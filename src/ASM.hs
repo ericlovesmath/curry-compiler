@@ -38,6 +38,8 @@ epilogue =
 emit :: IR -> Writer String ()
 emit ir = case ir of
     Int n -> tell $ "mov rax, " ++ show n ++ "\n"
+    Bool True -> emit $ Int 1
+    Bool False -> emit $ Int 0
     Begin es -> mapM_ emit es
     BinaryOp op left right -> do
         emit right

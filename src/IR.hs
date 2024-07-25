@@ -10,6 +10,7 @@ type FreshM = State Label
 data IR
     = BinaryOp BinOp IR IR
     | Int Integer
+    | Bool Bool
     | PrintInt IR
     | Begin [IR]
     | If Label IR IR IR
@@ -28,6 +29,7 @@ fresh = do
 ir :: A.Ast -> FreshM IR
 ir (A.BinaryOp op e e') = binaryOp op e e'
 ir (A.Int n) = return $ Int n
+ir (A.Bool b) = return $ Bool b
 ir (A.PrintInt e) = PrintInt <$> ir e
 ir (A.Begin es) = Begin <$> mapM ir es
 ir (A.If cond t f) = If <$> fresh <*> ir cond <*> ir t <*> ir f

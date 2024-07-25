@@ -73,13 +73,10 @@ boolP :: Parser Bool
 boolP = (True <$ stringP "#t") <|> (False <$ stringP "#f")
 
 numberP :: Parser Integer
-numberP = do
-    neg <- optional (charP '-')
-    digits <- some $ satisfy isDigit
-    let number = read digits
-    return $ case neg of
-        Just _ -> -number
-        Nothing -> number
+numberP =
+    read <$> (digits <|> (:) <$> charP '-' <*> digits)
+  where
+    digits = some (satisfy isDigit)
 
 alphaP :: Parser String
 alphaP = some $ satisfy isAlpha
