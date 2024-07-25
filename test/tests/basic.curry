@@ -49,4 +49,17 @@
       )
     )
 
+    ; functions
+
+    (begin
+      (define double (lambda x (* x 2)))
+      (define n 9)
+      (define x 1)
+      (while n
+         (set x (apply double x))
+         (set n (- n 1))
+         (put x)
+      )
+    )
+
 )

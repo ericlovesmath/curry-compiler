@@ -32,6 +32,8 @@ data IR
     | Define Depth IR
     | While Label IR [IR]
     | If Label IR IR IR
+    | Lambda Label Depth IR
+    | Apply Label IR IR
 
 data BinOp = Add | Sub | Mul | Div | Eq
 
@@ -96,3 +98,14 @@ ir (A.While cond es) = While <$> fresh <*> ir cond <*> scoped (mapM ir es)
 ir (A.Var name) = getVar name >>= (return . Var)
 ir (A.Set name e) = getVar name >>= (\d -> Set d <$> ir e)
 ir (A.Define name e) = defineVar name >>= (\d -> Define d <$> ir e)
+ir (A.Lambda arg body) = scoped $ do
+    depth <- defineVar arg
+    body' <- ir body
+    l <- fresh
+    return $ Lambda l depth body'
+ir (A.Apply fun arg) = do
+    f <- ir fun
+    case f of 
+        Lambda l _ _ -> Apply l f <$> ir arg
+        _ -> Apply (-5) f <$> ir arg
+        -- _ -> error "Attempted to apply non-Lambda"
