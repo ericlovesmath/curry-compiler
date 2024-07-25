@@ -1,14 +1,25 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module IR (makeIR, IR (..), BinOp (..)) where
 
 import qualified AST as A
-import Data.Map as Map
-
+import Control.Lens
 import Control.Monad.State
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 type Label = Integer
 type Depth = Integer
 type VarMap = Map String Depth
-type FreshM = State (Label, [VarMap], Depth)
+
+data FreshState = FreshState
+    { _label :: Label
+    , _scopes :: [VarMap]
+    , _maxDepth :: Depth
+    }
+makeLenses ''FreshState
+
+type FreshM = State FreshState
 
 data IR
     = BinaryOp BinOp IR IR
@@ -24,70 +35,62 @@ data IR
 data BinOp = Add | Sub | Mul | Div | Eq
 
 makeIR :: A.Ast -> IR
-makeIR ast = evalState (ir ast) (0, [Map.empty], 1)
+makeIR ast = evalState (ir ast) (FreshState 0 [Map.empty] 1)
 
 fresh :: FreshM Integer
 fresh = do
-    (n, scopes, d) <- get
-    put (n + 1, scopes, d)
+    label += 1
+    n <- use label
     return n
-
--- TODO: Inline all these and move fail to Error
 
 -- Fetches variable, fails if not defined in any higher scope
 getVar :: String -> FreshM Depth
 getVar name = do
-    (_, scope, _) <- get
+    scopes' <- use scopes
     let search [] = error $ "failed to find variable: " ++ name
         search (m : ms) = case Map.lookup name m of
             Nothing -> search ms
             Just d -> d
-    return $ search scope
+    return $ search scopes'
 
 -- Defines variable, fails with already defined in scope
 defineVar :: String -> FreshM Depth
 defineVar name = do
-    (n, scope, d) <- get
-    let m : ms = scope
-    if Map.member name m
-        then error $ "`define` called on already defined variable: " ++ name
-        else do
-            put (n, Map.insert name d m : ms, d + 1)
-            return d
+    scopes' <- use scopes
+    d <- use maxDepth
+    case scopes' of
+        [] -> error "IR unexpectedly escaped global scope"
+        m : ms ->
+            if Map.member name m
+                then error $ "`define` called on already defined: " ++ name
+                else do
+                    scopes .= Map.insert name d m : ms
+                    maxDepth += 1
+                    return d
 
-enterScope :: FreshM ()
-enterScope = do
-    (n, scope, d) <- get
-    put (n, Map.empty : scope, d)
-
-leaveScope :: FreshM ()
-leaveScope = do
-    (n, scope, d) <- get
-    put (n, tail scope, d)
+withScope :: FreshM a -> FreshM a
+withScope action = do
+    scopes %= (Map.empty :)
+    result <- action
+    scopes %= unsafeTail
+    return result
+  where
+    unsafeTail [] = error "IR unexpectedly escaped global scope"
+    unsafeTail (_ : es) = es
 
 ir :: A.Ast -> FreshM IR
-ir (A.BinaryOp op e e') = BinaryOp (to op) <$> ir e <*> ir e'
+ir (A.BinaryOp binop e e') = BinaryOp (ir_op binop) <$> ir e <*> ir e'
   where
-    to A.Add = Add
-    to A.Sub = Sub
-    to A.Mul = Mul
-    to A.Div = Div
-    to A.Eq = Eq
+    ir_op A.Add = Add
+    ir_op A.Sub = Sub
+    ir_op A.Mul = Mul
+    ir_op A.Div = Div
+    ir_op A.Eq = Eq
 ir (A.Int n) = return $ Int n
 ir (A.Bool b) = return $ Bool b
 ir (A.PrintInt e) = PrintInt <$> ir e
 ir (A.If cond t f) = If <$> fresh <*> ir cond <*> ir t <*> ir f
-ir (A.Begin es) = do
-    enterScope
-    result <- mapM ir es
-    leaveScope
-    return $ Begin result
-ir (A.Var name) = do
-    depth <- getVar name
-    return $ Var depth
-ir (A.Set name e) = do
-    depth <- getVar name
-    Set depth <$> ir e
-ir (A.Define name e) = do
-    depth <- defineVar name
-    Define depth <$> ir e
+ir (A.Begin es) = withScope $ Begin <$> mapM ir es
+ir (A.Var name) = getVar name >>= (\d -> return $ Var d)
+ir (A.Set name e) = getVar name >>= (\d -> Set d <$> ir e)
+ir (A.Define name e) = defineVar name >>= (\d -> Define d <$> ir e)
