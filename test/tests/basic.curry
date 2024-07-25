@@ -1,12 +1,38 @@
 (begin
-    (printint 1)
-    (printint (+ 12 -3))
-    (printint (- 12 -3))
-    (printint (* 12 -3))
-    (printint (/ 12 -3))
-    (printint (/ (+ 381 510) (* 3 (- 5 10))))
-    (printint (if #t 2 3))
-    (printint (if #f 2 3))
-    (printint (if (= 10 (+ 5 5)) 2 3))
-    (printint (if (= 10 (- 5 5)) 2 3))
+
+    ; basic
+    (put 1)
+    (put (+ 12 -3))
+    (put (- 12 -3))
+    (put (* 12 -3))
+    (put (/ 12 -3)) ; inline comment ignored
+    (put (/ (+ 381 510) (* 3 (- 5 10))))
+
+    ; if
+    (put (if #t 2 3)) ; 2
+    (put (if #f 2 3)) ; 3
+    (put (if (= 10 (+ 5 5)) 2 3)) ; 2
+    (put (if (= 10 (- 5 5)) 2 3)) ; 3
+
+    ; variables
+    (begin
+      (define x 4)
+      (put x) ; 4
+      (define y (* x 3))
+      (put (+ x (* -1 y))) ; -8
+
+      ; local scoping
+      (begin
+        (define x 5)
+        (put x) ; 5
+      )
+      (put x) ; Still 4
+
+      ; Modify from inner scope
+      (begin
+        (set x 10)
+      )
+      (put x) ; 10
+    )
+
 )

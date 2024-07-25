@@ -6,7 +6,7 @@ import Test.Hspec
 
 import ASM (makeASM)
 import AST (makeAST)
-import IR (makeIR, IR)
+import IR (IR, makeIR)
 import Parser (parse)
 
 compile :: String -> IR
@@ -46,5 +46,5 @@ spec :: Spec
 spec = do
     describe "compiler checks" $ do
         it "compiles source code to assembly and runs correctly" $ do
-            verifyCompiler "basic" $
-                unlines ["1", "9", "15", "-36", "-4", "-59", "2", "3", "2", "3"]
+            verifyCompiler "basic" . unlines . map (show :: Integer -> String) $
+                [1, 9, 15, -36, -4, -59, 2, 3, 2, 3, 4, -8, 5, 4, 10]

@@ -8,8 +8,7 @@ import Control.Monad.State
 type Label = Integer
 type Depth = Integer
 type VarMap = Map String Depth
-type Scope = [(VarMap, Depth)]
-type FreshM = State (Label, Scope)
+type FreshM = State (Label, [VarMap], Depth)
 
 data IR
     = BinaryOp BinOp IR IR
@@ -25,44 +24,46 @@ data IR
 data BinOp = Add | Sub | Mul | Div | Eq
 
 makeIR :: A.Ast -> IR
-makeIR ast = evalState (ir ast) (0, [(Map.empty, 1)])
+makeIR ast = evalState (ir ast) (0, [Map.empty], 1)
 
 fresh :: FreshM Integer
 fresh = do
-    (n, scopes) <- get
-    put (n + 1, scopes)
+    (n, scopes, d) <- get
+    put (n + 1, scopes, d)
     return n
 
-getDepth :: String -> FreshM (Maybe Depth)
-getDepth name = do
-    (_, scope) <- get
-    let search [] = Nothing
-        search ((m, _) : ms) = maybe (search ms) Just (Map.lookup name m)
+-- TODO: Inline all these and move fail to Error
+
+-- Fetches variable, fails if not defined in any higher scope
+getVar :: String -> FreshM Depth
+getVar name = do
+    (_, scope, _) <- get
+    let search [] = error $ "failed to find variable: " ++ name
+        search (m : ms) = case Map.lookup name m of
+            Nothing -> search ms
+            Just d -> d
     return $ search scope
 
-setDepth :: String -> Depth -> FreshM ()
-setDepth name depth = do
-    (n, scope) <- get
-    let (m, d) : ms = scope
-    put (n, (Map.insert name depth m, d) : ms)
-
-freshVar :: FreshM Depth
-freshVar = do
-    (n, scope) <- get
-    let (m, d) : ms = scope
-    let newDepth = d + 1
-    put (n, (m, newDepth) : ms)
-    return d
+-- Defines variable, fails with already defined in scope
+defineVar :: String -> FreshM Depth
+defineVar name = do
+    (n, scope, d) <- get
+    let m : ms = scope
+    if Map.member name m
+        then error $ "`define` called on already defined variable: " ++ name
+        else do
+            put (n, Map.insert name d m : ms, d + 1)
+            return d
 
 enterScope :: FreshM ()
 enterScope = do
-    (n, scope) <- get
-    put (n, (Map.empty, 1) : scope)
+    (n, scope, d) <- get
+    put (n, Map.empty : scope, d)
 
 leaveScope :: FreshM ()
 leaveScope = do
-    (n, scope) <- get
-    put (n, tail scope)
+    (n, scope, d) <- get
+    put (n, tail scope, d)
 
 ir :: A.Ast -> FreshM IR
 ir (A.BinaryOp op e e') = BinaryOp (to op) <$> ir e <*> ir e'
@@ -76,28 +77,17 @@ ir (A.Int n) = return $ Int n
 ir (A.Bool b) = return $ Bool b
 ir (A.PrintInt e) = PrintInt <$> ir e
 ir (A.If cond t f) = If <$> fresh <*> ir cond <*> ir t <*> ir f
-ir (A.Begin es) = Begin <$> mapM ir es
--- TODO: if Begin was a scope, this is how we would do it
--- ir (A.Begin es) = do
---     enterScope
---     result <- mapM ir es
---     leaveScope
---     return $ Begin result
+ir (A.Begin es) = do
+    enterScope
+    result <- mapM ir es
+    leaveScope
+    return $ Begin result
 ir (A.Var name) = do
-    depth <- getDepth name
-    case depth of
-        Just d -> return $ Var d
-        Nothing -> error $ "Var called before Set: " ++ name
+    depth <- getVar name
+    return $ Var depth
 ir (A.Set name e) = do
-    depth <- getDepth name
-    case depth of
-        Just d -> Set d <$> ir e
-        Nothing -> do
-            d <- freshVar
-            setDepth name d
-            Set d <$> ir e
+    depth <- getVar name
+    Set depth <$> ir e
 ir (A.Define name e) = do
-    do
-        d <- freshVar
-        setDepth name d
-        Define d <$> ir e
+    depth <- defineVar name
+    Define depth <$> ir e
