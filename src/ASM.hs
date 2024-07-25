@@ -68,3 +68,14 @@ emit ir = case ir of
         tell $ ".else." ++ l ++ ":\n"
         emit f
         tell $ ".after." ++ l ++ ":\n"
+    Var depth -> do
+        let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+        tell $ "mov rax, " ++ reg ++ "\n"
+    Set depth e -> do
+        emit e
+        let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+        tell $ "mov " ++ reg ++ ", rax\n"
+    Define depth e -> do
+        emit e
+        let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+        tell $ "mov " ++ reg ++ ", rax\n"

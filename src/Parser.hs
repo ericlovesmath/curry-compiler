@@ -56,11 +56,14 @@ satisfy cond =
         [] -> Left "End of Stream"
         _ -> Left $ "Failed to Satisfy"
 
+commentP :: Parser ()
+commentP = () <$ (charP ';' *> many (satisfy (/= '\n')))
+
 strip :: Parser ()
-strip = () <$ many (satisfy isSpace)
+strip = () <$ many (() <$ satisfy isSpace <|> commentP)
 
 spaces :: Parser ()
-spaces = () <$ some (satisfy isSpace)
+spaces = () <$ some (() <$ satisfy isSpace <|> commentP)
 
 charP :: Char -> Parser Char
 charP c = satisfy (== c)
@@ -92,7 +95,10 @@ literalP =
         <|> (Atom . pure <$> specialP)
 
 listP :: Parser Expr
-listP = List <$> (charP '(' *> strip *> sepBy spaces exprP <* strip <* charP ')')
+listP = List <$> (open *> strip *> sepBy spaces exprP <* strip <* close)
+  where
+    open = satisfy (`elem` "([{")
+    close = satisfy (`elem` ")]}")
 
 exprP :: Parser Expr
 exprP = listP <|> literalP
