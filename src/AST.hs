@@ -13,6 +13,7 @@ data Ast
     | Var String
     | Set String Ast
     | Define String Ast
+    | While Ast [Ast]
     | If Ast Ast Ast
 
 data BinOp = Add | Sub | Mul | Div | Eq
@@ -31,6 +32,7 @@ tree (P.List (P.Atom "begin" : es)) = Begin <$> mapM tree es
 tree (P.List [P.Atom "if", cond, t, f]) = If <$> tree cond <*> tree t <*> tree f
 tree (P.List [P.Atom "set", P.Atom name, val]) = Set name <$> tree val
 tree (P.List [P.Atom "define", P.Atom name, val]) = Define name <$> tree val
+tree (P.List (P.Atom "while" : cond : es@(_ : _))) = While <$> tree cond <*> mapM tree es
 tree (P.Int n) = Right $ Int n
 tree (P.Bool b) = Right $ Bool b
 tree (P.List [e]) = tree e

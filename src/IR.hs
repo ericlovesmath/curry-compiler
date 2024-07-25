@@ -30,6 +30,7 @@ data IR
     | Var Depth
     | Set Depth IR
     | Define Depth IR
+    | While Label IR [IR]
     | If Label IR IR IR
 
 data BinOp = Add | Sub | Mul | Div | Eq
@@ -68,8 +69,8 @@ defineVar name = do
                     maxDepth += 1
                     return d
 
-withScope :: FreshM a -> FreshM a
-withScope action = do
+scoped :: FreshM a -> FreshM a
+scoped action = do
     scopes %= (Map.empty :)
     result <- action
     scopes %= unsafeTail
@@ -89,8 +90,9 @@ ir (A.BinaryOp binop e e') = BinaryOp (ir_op binop) <$> ir e <*> ir e'
 ir (A.Int n) = return $ Int n
 ir (A.Bool b) = return $ Bool b
 ir (A.PrintInt e) = PrintInt <$> ir e
-ir (A.If cond t f) = If <$> fresh <*> ir cond <*> ir t <*> ir f
-ir (A.Begin es) = withScope $ Begin <$> mapM ir es
-ir (A.Var name) = getVar name >>= (\d -> return $ Var d)
+ir (A.If cond t f) = If <$> fresh <*> ir cond <*> scoped (ir t) <*> scoped (ir f)
+ir (A.Begin es) = scoped $ Begin <$> mapM ir es
+ir (A.While cond es) = While <$> fresh <*> ir cond <*> scoped (mapM ir es)
+ir (A.Var name) = getVar name >>= (return . Var)
 ir (A.Set name e) = getVar name >>= (\d -> Set d <$> ir e)
 ir (A.Define name e) = defineVar name >>= (\d -> Define d <$> ir e)

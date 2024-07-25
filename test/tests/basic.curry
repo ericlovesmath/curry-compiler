@@ -35,4 +35,18 @@
       (put x) ; 10
     )
 
+    ; while loops
+    (begin
+      (define n 10)
+      (define a 1)
+      (define b 1)
+      (while n
+         (put a)
+         (define next (+ a b))
+         (set a b)
+         (set b next)
+         (set n (- n 1))
+      )
+    )
+
 )

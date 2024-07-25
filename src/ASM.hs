@@ -28,12 +28,7 @@ prologue =
         ]
 
 epilogue :: String
-epilogue =
-    unlines
-        [ "; exit 0"
-        , "xor rdi, rdi"
-        , "call _exit"
-        ]
+epilogue = unlines ["xor rdi, rdi", "call _exit"]
 
 emit :: IR -> Writer String ()
 emit ir = case ir of
@@ -79,3 +74,12 @@ emit ir = case ir of
         emit e
         let reg = "[rbp-" ++ show (depth * 8) ++ "]"
         tell $ "mov " ++ reg ++ ", rax\n"
+    While label cond es -> do
+        let l = show label
+        tell $ ".whilecond." ++ l ++ ":\n"
+        emit cond
+        tell "cmp rax, 0\n"
+        tell $ "je .whileend." ++ l ++ "\n"
+        mapM_ emit es
+        tell $ "jmp .whilecond." ++ l ++ "\n"
+        tell $ ".whileend." ++ l ++ ":\n"
