@@ -1,72 +1,68 @@
 module ASM (makeASM) where
 
-import IR as I
+import Control.Monad.Writer
+import IR
 
-makeASM :: IR -> String
-makeASM ir = prologue ++ emit ir ++ epilogue
+makeASM :: IR -> FilePath -> IO ()
+makeASM ir filepath = do
+    let ((), result) = runWriter emitter
+    writeFile filepath result
+  where
+    emitter = do
+        tell prologue
+        emit ir
+        tell epilogue
 
 prologue :: String
 prologue =
-    concat
-        [ "global _main\n"
-        , "extern _printf\n"
-        , "extern _exit\n\n"
-        , "section .data\n"
-        , "default rel\n\n"
-        , "format_int:\n"
-        , "    db \"%d\", 10, 0\n\n"
-        , "section .text\n\n"
-        , "_main:\n"
+    unlines
+        [ "global _main"
+        , "extern _printf"
+        , "extern _exit\n"
+        , "section .data"
+        , "default rel"
+        , "format_int:"
+        , "    db \"%d\", 10, 0\n"
+        , "section .text\n"
+        , "_main:"
         ]
 
 epilogue :: String
 epilogue =
-    concat
-        [ "    ; exit 0\n"
-        , "    xor rdi, rdi\n"
-        , "    call _exit"
+    unlines
+        [ "; exit 0"
+        , "xor rdi, rdi"
+        , "call _exit"
         ]
 
-emit :: IR -> String
+emit :: IR -> Writer String ()
 emit ir = case ir of
-    BinaryOp op left right ->
-        concat
-            [ "    ; " ++ comment ++ "\n"
-            , emit right
-            , "    push rax\n"
-            , emit left
-            , "    pop rdi\n"
-            , "    " ++ asm ++ "\n"
-            ]
-      where
-        (comment, asm) = case op of
-            Add -> ("Addition", "add rax, rdi")
-            Sub -> ("Subtraction", "sub rax, rdi")
-            Mul -> ("Multiplication", "imul rax, rdi")
-            Div -> ("Division", "cqo\n    idiv rdi")
-    Int n -> "    mov rax, " ++ show n ++ "\n"
-    PrintInt e ->
-        concat
-            [ emit e
-            , "    ; Print integer on rax\n"
-            , "    lea rdi, [format_int]\n"
-            , "    mov rsi, rax\n"
-            , "    xor rax, rax\n"
-            , "    call _printf\n"
-            ]
-    Begin es -> concat $ map emit es
-    If label cond t f ->
-        -- TODO: Implement Booleans instead of == 0
-        concat
-            [ "    ; If Statement\n"
-            , emit cond
-            , "    cmp rax, 0\n"
-            , "    jne .else." ++ l ++ "\n\n"
-            , emit t
-            , "    jmp .after." ++ l ++ "\n"
-            , ".else." ++ l ++ ":\n"
-            , emit f
-            , ".after." ++ l ++ ":\n"
-            ]
-        where
-            l = show label
+    Int n -> tell $ "mov rax, " ++ show n ++ "\n"
+    Begin es -> mapM_ emit es
+    BinaryOp op left right -> do
+        emit right
+        tell "push rax\n"
+        emit left
+        tell "pop rdi\n"
+        tell $ case op of
+            Add -> "add rax, rdi\n"
+            Sub -> "sub rax, rdi\n"
+            Mul -> "imul rax, rdi\n"
+            Div -> unlines ["cqo", "idiv rdi"]
+            Eq -> unlines ["cmp rax, rdi", "sete al", "movzx rax, al"]
+    PrintInt e -> do
+        emit e
+        tell "lea rdi, [format_int]\n"
+        tell "mov rsi, rax\n"
+        tell "xor rax, rax\n"
+        tell "call _printf\n"
+    If label cond t f -> do
+        emit cond
+        tell "cmp rax, 0\n"
+        let l = show label
+        tell $ "je .else." ++ l ++ "\n"
+        emit t
+        tell $ "jmp .after." ++ l ++ "\n"
+        tell $ ".else." ++ l ++ ":\n"
+        emit f
+        tell $ ".after." ++ l ++ ":\n"

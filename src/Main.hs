@@ -10,13 +10,6 @@ import Parser (parse)
 
 type Error = String
 
-compile :: String -> Either Error String
-compile program = do
-    expr <- parse program
-    ast <- makeAST expr
-    let ir = makeIR ast
-    return $ makeASM ir
-
 repl :: IO ()
 repl = do
     putStr "> "
@@ -25,11 +18,12 @@ repl = do
     case input of
         ":q" -> return ()
         _ -> do
-            case compile input of
+            case parse input >>= makeAST of
                 Left err -> do
                     putStrLn $ "Error: " ++ err
-                Right assembly -> do
-                    writeFile (path ++ ".asm") assembly
+                Right ast -> do
+                    let ir = makeIR ast
+                    makeASM ir $ path ++ ".asm"
                     callCommand $ "make -s FNAME=" ++ path
                     output <- readProcess path [] ""
                     putStr output

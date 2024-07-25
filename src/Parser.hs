@@ -85,7 +85,7 @@ alphaP :: Parser String
 alphaP = some $ satisfy isAlpha
 
 specialP :: Parser Char
-specialP = satisfy (`elem` "+/-*")
+specialP = satisfy (`elem` "+/-*=")
 
 literalP :: Parser Expr
 literalP =

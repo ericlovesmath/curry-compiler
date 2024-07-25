@@ -6,16 +6,16 @@ import Test.Hspec
 
 import ASM (makeASM)
 import AST (makeAST)
-import IR (makeIR)
+import IR (makeIR, IR)
 import Parser (parse)
 
-compile :: String -> String
+compile :: String -> IR
 compile program =
     case parse program of
         Left err -> error $ "Parser Error: " ++ err
         Right expr -> case makeAST expr of
             Left err -> error $ "AST Error: " ++ err
-            Right ast -> makeASM $ makeIR ast
+            Right ast -> makeIR ast
 
 verifyCompiler :: FilePath -> String -> IO ()
 verifyCompiler filename expected = do
@@ -28,7 +28,8 @@ verifyCompiler filename expected = do
     code <- readFile inputFile
 
     -- Compile Code
-    writeFile asmFile (compile code)
+    let ir = compile code
+    makeASM ir asmFile
 
     -- Assemble Binary
     callCommand $ "make -s FNAME=" ++ base
@@ -46,4 +47,4 @@ spec = do
     describe "compiler checks" $ do
         it "compiles source code to assembly and runs correctly" $ do
             verifyCompiler "basic" $
-                unlines ["1", "9", "15", "-36", "-4", "-59"]
+                unlines ["1", "9", "15", "-36", "-4", "-59", "2", "3", "2", "3"]

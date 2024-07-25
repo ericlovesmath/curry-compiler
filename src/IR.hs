@@ -14,7 +14,7 @@ data IR
     | Begin [IR]
     | If Label IR IR IR
 
-data BinOp = Add | Sub | Mul | Div
+data BinOp = Add | Sub | Mul | Div | Eq
 
 makeIR :: A.Ast -> IR
 makeIR ast = evalState (ir ast) 0
@@ -42,3 +42,4 @@ binaryOp op expr expr' = do
     to A.Sub = Sub
     to A.Mul = Mul
     to A.Div = Div
+    to A.Eq = Eq

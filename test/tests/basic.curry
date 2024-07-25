@@ -5,4 +5,8 @@
     (printint (* 12 -3))
     (printint (/ 12 -3))
     (printint (/ (+ 381 510) (* 3 (- 5 10))))
+    (printint (if 1 2 3))
+    (printint (if 0 2 3))
+    (printint (if (= 10 (+ 5 5)) 2 3))
+    (printint (if (= 10 (- 5 5)) 2 3))
 )
