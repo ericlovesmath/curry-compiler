@@ -11,106 +11,100 @@ type Writer = State Log
 
 makeASM :: IR -> FilePath -> IO ()
 makeASM ir filepath = do
-    let codeMap = execState emitter Map.empty
     let output [] = ""
-        output (m : ms) = fst m ++ ":\n" ++ snd m ++ "\n" ++ output ms
+        output (m : ms) = "\n" ++ fst m ++ ":\n" ++ snd m ++ "\n" ++ output ms
+    let codeMap = execState emitter Map.empty
     let res = output (Map.toList codeMap)
     writeFile filepath (prologue ++ res)
   where
     emitter = do
         emit "_main" ir
-        out "_main" epilogue
+        code "_main" epilogue
+    prologue =
+        unlines
+            [ "global _main"
+            , "extern _printf"
+            , "extern _exit\n"
+            , "section .data"
+            , "default rel"
+            , "format_int: db \"%d\", 10, 0"
+            , "section .text"
+            ]
+    epilogue = unlines ["xor rdi, rdi", "call _exit"]
 
-prologue :: String
-prologue =
-    unlines
-        [ "global _main"
-        , "extern _printf"
-        , "extern _exit\n"
-        , "section .data"
-        , "default rel"
-        , "format_int:"
-        , "    db \"%d\", 10, 0\n"
-        , "section .text\n"
-        ]
-
-epilogue :: String
-epilogue = unlines ["xor rdi, rdi", "call _exit"]
-
-out :: Label -> String -> Writer ()
-out label line = do
+code :: Label -> String -> Writer ()
+code label line = do
     m <- get
-    put $ Map.insertWith (flip (++)) label line m
+    put $ Map.insertWith (\old new -> new ++ '\n' : old) label line m
 
 emit :: Label -> IR -> Writer ()
-emit s ir = case ir of
-    Int n -> out s $ "mov rax, " ++ show n ++ "\n"
-    Bool True -> emit s $ Int 1
-    Bool False -> emit s $ Int 0
-    Begin es -> mapM_ (emit s) es
-    BinaryOp op left right -> do
-        emit s right
-        out s "push rax\n"
-        emit s left
-        out s "pop rdi\n"
-        out s $ case op of
-            Add -> "add rax, rdi\n"
-            Sub -> "sub rax, rdi\n"
-            Mul -> "imul rax, rdi\n"
-            Div -> unlines ["cqo", "idiv rdi"]
-            Eq -> unlines ["cmp rax, rdi", "sete al", "movzx rax, al"]
-    PrintInt e -> do
-        emit s e
-        out s "lea rdi, [format_int]\n"
-        out s "mov rsi, rax\n"
-        out s "xor rax, rax\n"
-        out s "call _printf\n"
-    If label cond t f -> do
-        emit s cond
-        out s "cmp rax, 0\n"
-        let l = show label
-        out s $ "je _else." ++ l ++ "\n"
-        emit s t
-        out s $ "jmp _after." ++ l ++ "\n"
-        out s $ "_else." ++ l ++ ":\n"
-        emit s f
-        out s $ "_after." ++ l ++ ":\n"
-    Var depth -> do
-        let reg = "[rbp-" ++ show (depth * 8) ++ "]"
-        out s $ "mov rax, " ++ reg ++ "\n"
-    Set depth e -> do
-        emit s e
-        let reg = "[rbp-" ++ show (depth * 8) ++ "]"
-        out s $ "mov " ++ reg ++ ", rax\n"
-    Define depth e -> do
-        emit s e
-        let reg = "[rbp-" ++ show (depth * 8) ++ "]"
-        out s $ "mov " ++ reg ++ ", rax\n"
-    While label cond es -> do
-        let l = show label
-        out s $ ".whilecond." ++ l ++ ":\n"
-        emit s cond
-        out s "cmp rax, 0\n"
-        out s $ "je .whileend." ++ l ++ "\n"
-        mapM_ (emit s) es
-        out s $ "jmp .whilecond." ++ l ++ "\n"
-        out s $ ".whileend." ++ l ++ ":\n"
-    Lambda label depth body -> do
-        let reg = "[rbp-" ++ show (depth * 8) ++ "]"
-        let l = "_lambda." ++ show label
-        -- out l $ "push rbp\n"
-        -- out l $ "mov rbp, rsp\n"
-        -- out l $ "sub rsp, 100\n"
-        out l $ "mov " ++ reg ++ ", rax\n"
-        emit l body
-        -- out l $ "mov rsp, rbp\n"
-        -- out l $ "pop rbp\n"
-        out l $ "ret\n"
-        out s $ "lea rax, [" ++ l ++ "]\n"
-    Apply label fun arg -> do
-        emit s fun
-        out s "push rax\n"
-        emit s arg
-        out s "pop rdx\n"
-        out s $ "call rdx\n"
-        -- out s $ "call _lambda." ++ show label ++ "\n"
+emit s (Int n) = code s $ "mov rax, " ++ show n
+emit s (Bool True) = emit s $ Int 1
+emit s (Bool False) = emit s $ Int 0
+emit s (Begin es) = mapM_ (emit s) es
+emit s (BinaryOp op left right) = do
+    emit s right
+    code s "push rax"
+    emit s left
+    code s "pop rdi"
+    code s $ case op of
+        Add -> "add rax, rdi"
+        Sub -> "sub rax, rdi"
+        Mul -> "imul rax, rdi"
+        Div -> "cqo\n" ++ "idiv rdi"
+        Eq -> "cmp rax, rdi\n" ++ "sete al\n" ++ "movzx rax, al"
+emit s (PrintInt e) = do
+    emit s e
+    code s "lea rdi, [format_int]"
+    code s "mov rsi, rax"
+    code s "xor rax, rax"
+    code s "call _printf"
+emit s (If label cond true false) = do
+    let l = show label
+    emit s $ cond
+    code s $ "cmp rax, 0"
+    code s $ "je _else_" ++ l
+    emit s $ true
+    code s $ "jmp _after_" ++ l
+    code s $ "_else_" ++ l ++ ":"
+    emit s $ false
+    code s $ "_after_" ++ l ++ ":"
+emit s (Var depth) = do
+    let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+    code s $ "mov rax, " ++ reg
+emit s (Set depth e) = do
+    let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+    emit s $ e
+    code s $ "mov " ++ reg ++ ", rax"
+emit s (Define depth e) = do
+    let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+    emit s $ e
+    code s $ "mov " ++ reg ++ ", rax"
+emit s (While label cond es) = do
+    let l = show label
+    code s $ "_while_cond_" ++ l ++ ":"
+    emit s $ cond
+    code s $ "cmp rax, 0\n"
+    code s $ "je _while_end_" ++ l
+    mapM_ (emit s) es
+    code s $ "jmp _while_cond_" ++ l
+    code s $ "_while_end_" ++ l ++ ":"
+emit s (Lambda label depth body) = do
+    let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+    let l = "_lambda_" ++ show label
+    -- TODO: For when I properly implement stack frames
+    -- out l $ "push rbp"
+    -- out l $ "mov rbp, rsp"
+    -- out l $ "sub rsp, 100"
+    code l $ "mov " ++ reg ++ ", rax"
+    emit l $ body
+    -- out l $ "mov rsp, rbp"
+    -- out l $ "pop rbp"
+    code l $ "ret"
+    code s $ "lea rax, [" ++ l ++ "]"
+emit s (Apply fun arg) = do
+    emit s fun
+    code s "push rax"
+    emit s arg
+    code s "pop rdx"
+    code s "call rdx"

@@ -95,10 +95,10 @@ literalP =
         <|> (Atom . pure <$> specialP)
 
 listP :: Parser Expr
-listP = List <$> (open *> strip *> sepBy spaces exprP <* strip <* close)
+listP = List <$> (bounded '(' ')' <|> bounded '[' ']' <|> bounded '{' '}')
   where
-    open = satisfy (`elem` "([{")
-    close = satisfy (`elem` ")]}")
+    exprs = strip *> sepBy spaces exprP <* strip
+    bounded opening closing = charP opening *> exprs <* charP closing
 
 exprP :: Parser Expr
 exprP = listP <|> literalP

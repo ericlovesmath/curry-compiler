@@ -6,7 +6,7 @@
     (put (- 12 -3))
     (put (* 12 -3))
     (put (/ 12 -3)) ; inline comment ignored
-    (put (/ (+ 381 510) (* 3 (- 5 10))))
+    (put (/ [+ 381 510] [* 3 {- 5 10}]))
 
     ; if
     (put (if #t 2 3)) ; 2
@@ -50,16 +50,23 @@
     )
 
     ; functions
-
     (begin
-      (define double (lambda x (* x 2)))
+      (define double [lambda x (* x 2)])
       (define n 9)
       (define x 1)
       (while n
-         (set x (apply double x))
+         (set x [apply double x])
          (set n (- n 1))
          (put x)
       )
+    )
+
+    ; function scope
+    (begin
+      (define f
+        [lambda x (* x (apply [lambda x (+ x 2)] x))]
+      )
+      (put (apply f 10)) ; 10 * (10 + 2)
     )
 
 )
