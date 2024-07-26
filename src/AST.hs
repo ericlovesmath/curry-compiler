@@ -36,7 +36,16 @@ tree (P.List [P.Atom "set", P.Atom name, val]) = Set name <$> tree val
 tree (P.List [P.Atom "define", P.Atom name, val]) = Define name <$> tree val
 tree (P.List (P.Atom "while" : cond : es@(_ : _))) = While <$> tree cond <*> mapM tree es
 tree (P.List [P.Atom "lambda", P.Atom arg, e]) = Lambda arg <$> tree e
-tree (P.List [P.Atom "apply", f, e]) = Apply <$> tree f <*> tree e
+tree (P.List [P.Atom "lambda", P.List args@(_ : _), e]) = go args
+  where
+    go [] = tree e
+    go (P.Atom v : vs) = Lambda v <$> go vs
+    go _ = Left "`lambda` attempted to be defined with non-variable args"
+tree (P.List [f, arg]) = Apply <$> tree f <*> tree arg
+tree (P.List (f : args@(_ : _))) = go args
+  where
+    go [] = tree f
+    go (v : vs) = Apply <$> go vs <*> tree v
 tree (P.Int n) = Right $ Int n
 tree (P.Bool b) = Right $ Bool b
 tree (P.List [e]) = tree e

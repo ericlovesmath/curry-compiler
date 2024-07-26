@@ -95,7 +95,7 @@ ir (A.PrintInt e) = PrintInt <$> ir e
 ir (A.If cond t f) = If <$> fresh <*> ir cond <*> scoped (ir t) <*> scoped (ir f)
 ir (A.Begin es) = scoped $ Begin <$> mapM ir es
 ir (A.While cond es) = While <$> fresh <*> ir cond <*> scoped (mapM ir es)
-ir (A.Var name) = getVar name >>= (return . Var)
+ir (A.Var name) = getVar name >>= (\d -> return $ Var d)
 ir (A.Set name e) = getVar name >>= (\d -> Set d <$> ir e)
 ir (A.Define name e) = defineVar name >>= (\d -> Define d <$> ir e)
 ir (A.Lambda arg body) = scoped $ Lambda <$> fresh <*> defineVar arg <*> ir body

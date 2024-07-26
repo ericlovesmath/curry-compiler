@@ -84,7 +84,7 @@ emit s (While label cond es) = do
     let l = show label
     code s $ "_while_cond_" ++ l ++ ":"
     emit s $ cond
-    code s $ "cmp rax, 0\n"
+    code s $ "cmp rax, 0"
     code s $ "je _while_end_" ++ l
     mapM_ (emit s) es
     code s $ "jmp _while_cond_" ++ l
