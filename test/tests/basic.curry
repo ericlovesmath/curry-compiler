@@ -16,14 +16,14 @@
 
     ; variables
     (begin
-      (define x 4)
+      (let x 4)
       (put x) ; 4
-      (define y (* x 3))
+      (let y (* x 3))
       (put (+ x (* -1 y))) ; -8
 
       ; local scoping
       (begin
-        (define x 5)
+        (let x 5)
         (put x) ; 5
       )
       (put x) ; Still 4
@@ -37,12 +37,12 @@
 
     ; while loops
     (begin
-      (define n 10)
-      (define a 1)
-      (define b 1)
+      (let n 10)
+      (let a 1)
+      (let b 1)
       (while n
          (put a)
-         (define next (+ a b))
+         (let next (+ a b))
          (set a b)
          (set b next)
          (set n (- n 1))
@@ -51,9 +51,9 @@
 
     ; functions
     (begin
-      (define double [lambda x (* x 2)])
-      (define n 9)
-      (define x 1)
+      (let double [lambda x (* x 2)])
+      (let n 9)
+      (let x 1)
       (while n
          (set x [double x])
          (set n (- n 1))
@@ -63,16 +63,23 @@
 
     ; function scope
     (begin
-      (define f
-        [lambda x (* x ([lambda x (+ x 2)] x))]
-      )
+      (let f [lambda x (* x ([lambda x (+ x 2)] x))])
       (put (f 10)) ; 10 * (10 + 2)
     )
 
     ; currying and syntax sugar
     (begin
-      (define f (lambda [x y z] [+ x (+ y z)]))
-      (define g (f 10)) ; g y z = 10 + y + z
+      (define f [x y z] [+ x (+ y z)])
+      (let g (f 10)) ; g y z = 10 + y + z
       (put (g 6 7)) ; 23
+    )
+
+    ; function composition example
+    (begin
+      (define compose [f g x] [f (g x)])
+      (define incr [x] (+ x 1))
+      (define double [x] (* x 2))
+      (let f (compose incr double))
+      (put (f 5)) ; (5 * 2) + 1 = 11
     )
 )

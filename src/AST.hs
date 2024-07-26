@@ -12,7 +12,7 @@ data Ast
     | Begin [Ast]
     | Var String
     | Set String Ast
-    | Define String Ast
+    | Let String Ast
     | While Ast [Ast]
     | If Ast Ast Ast
     | Lambda String Ast
@@ -33,7 +33,9 @@ tree (P.List [P.Atom "put", e]) = PrintInt <$> tree e
 tree (P.List (P.Atom "begin" : es)) = Begin <$> mapM tree es
 tree (P.List [P.Atom "if", cond, t, f]) = If <$> tree cond <*> tree t <*> tree f
 tree (P.List [P.Atom "set", P.Atom name, val]) = Set name <$> tree val
-tree (P.List [P.Atom "define", P.Atom name, val]) = Define name <$> tree val
+tree (P.List [P.Atom "let", P.Atom name, val]) = Let name <$> tree val
+tree (P.List [P.Atom "define", P.Atom name, args, e]) =
+    Let name <$> tree (P.List [P.Atom "lambda", args, e])
 tree (P.List (P.Atom "while" : cond : es@(_ : _))) = While <$> tree cond <*> mapM tree es
 tree (P.List [P.Atom "lambda", P.Atom arg, e]) = Lambda arg <$> tree e
 tree (P.List [P.Atom "lambda", P.List args@(_ : _), e]) = go args
@@ -42,7 +44,7 @@ tree (P.List [P.Atom "lambda", P.List args@(_ : _), e]) = go args
     go (P.Atom v : vs) = Lambda v <$> go vs
     go _ = Left "`lambda` attempted to be defined with non-variable args"
 tree (P.List [f, arg]) = Apply <$> tree f <*> tree arg
-tree (P.List (f : args@(_ : _))) = go args
+tree (P.List (f : args@(_ : _))) = go $ reverse args
   where
     go [] = tree f
     go (v : vs) = Apply <$> go vs <*> tree v

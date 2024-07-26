@@ -76,7 +76,7 @@ emit s (Set depth e) = do
     let reg = "[rbp-" ++ show (depth * 8) ++ "]"
     emit s $ e
     code s $ "mov " ++ reg ++ ", rax"
-emit s (Define depth e) = do
+emit s (Let depth e) = do
     let reg = "[rbp-" ++ show (depth * 8) ++ "]"
     emit s $ e
     code s $ "mov " ++ reg ++ ", rax"

@@ -10,11 +10,20 @@ import Parser (parse)
 
 type Error = String
 
+getLines :: IO String
+getLines = do
+    x <- getLine
+    if x == ""
+        then return []
+        else do
+            xs <- getLines
+            return (x ++ "\n" ++ xs)
+
 repl :: IO ()
 repl = do
     putStr "> "
     hFlush stdout
-    input <- getLine
+    input <- getLines
     case input of
         ":q" -> return ()
         _ -> do

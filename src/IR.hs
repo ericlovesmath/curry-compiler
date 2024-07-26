@@ -29,7 +29,7 @@ data IR
     | Begin [IR]
     | Var Depth
     | Set Depth IR
-    | Define Depth IR
+    | Let Depth IR
     | While Label IR [IR]
     | If Label IR IR IR
     | Lambda Label Depth IR
@@ -65,7 +65,7 @@ defineVar name = do
         [] -> error "IR unexpectedly escaped global scope"
         m : ms ->
             if Map.member name m
-                then error $ "`define` called on already defined: " ++ name
+                then error $ "`let` called on already defined: " ++ name
                 else do
                     scopes .= Map.insert name d m : ms
                     maxDepth += 1
@@ -97,6 +97,6 @@ ir (A.Begin es) = scoped $ Begin <$> mapM ir es
 ir (A.While cond es) = While <$> fresh <*> ir cond <*> scoped (mapM ir es)
 ir (A.Var name) = getVar name >>= (\d -> return $ Var d)
 ir (A.Set name e) = getVar name >>= (\d -> Set d <$> ir e)
-ir (A.Define name e) = defineVar name >>= (\d -> Define d <$> ir e)
+ir (A.Let name e) = defineVar name >>= (\d -> Let d <$> scoped (ir e))
 ir (A.Lambda arg body) = scoped $ Lambda <$> fresh <*> defineVar arg <*> ir body
 ir (A.Apply fun arg) = Apply <$> ir fun <*> ir arg
