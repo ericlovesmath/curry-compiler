@@ -4,6 +4,7 @@ import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as Map
 import IR
+import AST (BinOp (..))
 
 type Label = String
 type Log = Map Label String
@@ -70,14 +71,14 @@ emit s (If label cond true false) = do
     emit s $ false
     code s $ "_after_" ++ l ++ ":"
 emit s (Var depth) = do
-    let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+    let reg = "[rbp-" ++ show depth ++ "]"
     code s $ "mov rax, " ++ reg
 emit s (Set depth e) = do
-    let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+    let reg = "[rbp-" ++ show depth ++ "]"
     emit s $ e
     code s $ "mov " ++ reg ++ ", rax"
 emit s (Let depth e) = do
-    let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+    let reg = "[rbp-" ++ show depth ++ "]"
     emit s $ e
     code s $ "mov " ++ reg ++ ", rax"
 emit s (While label cond es) = do
@@ -90,16 +91,20 @@ emit s (While label cond es) = do
     code s $ "jmp _while_cond_" ++ l
     code s $ "_while_end_" ++ l ++ ":"
 emit s (Lambda label depth body) = do
-    let reg = "[rbp-" ++ show (depth * 8) ++ "]"
+    let reg = "[rbp-" ++ show depth ++ "]"
     let l = "_lambda_" ++ show label
     -- TODO: For when I properly implement stack frames
-    -- out l $ "push rbp"
-    -- out l $ "mov rbp, rsp"
-    -- out l $ "sub rsp, 100"
+    -- BELOW
+    -- code l $ "push rbp"
+    -- code l $ "mov rbp, rsp"
+    -- code l $ "sub rsp, 1000"
+    -- ABOVE
     code l $ "mov " ++ reg ++ ", rax"
     emit l $ body
-    -- out l $ "mov rsp, rbp"
-    -- out l $ "pop rbp"
+    -- BELOW
+    -- code l $ "mov rsp, rbp"
+    -- code l $ "pop rbp"
+    -- ABOVE
     code l $ "ret"
     code s $ "lea rax, [" ++ l ++ "]"
 emit s (Apply fun arg) = do

@@ -43,14 +43,12 @@ tree (P.List [P.Atom "lambda", P.List args@(_ : _), e]) = go args
     go [] = tree e
     go (P.Atom v : vs) = Lambda v <$> go vs
     go _ = Left "`lambda` attempted to be defined with non-variable args"
-tree (P.List [f, arg]) = Apply <$> tree f <*> tree arg
-tree (P.List (f : args@(_ : _))) = go $ reverse args
+tree (P.List (f : args)) = apply (tree f) args
   where
-    go [] = tree f
-    go (v : vs) = Apply <$> go vs <*> tree v
+    apply ast [] = ast
+    apply ast (v : vs) = apply (Apply <$> ast <*> tree v) vs
 tree (P.Int n) = Right $ Int n
 tree (P.Bool b) = Right $ Bool b
-tree (P.List [e]) = tree e
 tree (P.Atom name) = Right $ Var name
 tree _ = Left "AST Failed"
 
